@@ -112,7 +112,33 @@ def trend_color(trend):
     return GREEN if trend == "improving" else (RED if trend == "declining" else (0.5,0.5,0.5))
 
 
+def clean_float(val):
+    if val is None or val == "": return 0.0
+    return float(str(val).replace("%","").replace(",","").strip())
+
+def clean_int(val):
+    if val is None or val == "": return 0
+    try: return int(float(str(val).replace(",","").strip()))
+    except: return 0
+
 def generate_pdf(D):
+    D["ar_w1"]       = clean_float(D.get("ar_w1", 0))
+    D["pr_w1"]       = clean_float(D.get("pr_w1", 0))
+    D["mbr_w1"]      = clean_float(D.get("mbr_w1", 0))
+    D["ar_w2"]       = clean_float(D.get("ar_w2", 0))
+    D["pr_w2"]       = clean_float(D.get("pr_w2", 0))
+    D["mbr_w2"]      = clean_float(D.get("mbr_w2", 0))
+    D["ar_pct"]      = clean_int(D.get("ar_pct", 0))
+    D["pr_pct"]      = clean_int(D.get("pr_pct", 0))
+    D["mbr_pct"]     = clean_int(D.get("mbr_pct", 0))
+    D["invited_w1"]  = clean_int(D.get("invited_w1", 0))
+    D["messaged_w1"] = clean_int(D.get("messaged_w1", 0))
+    D["pr_count_w1"] = clean_int(D.get("pr_count_w1", 0))
+    D["mb_count_w1"] = clean_int(D.get("mb_count_w1", 0))
+    D["invited_w2"]  = clean_int(D.get("invited_w2", 0))
+    D["messaged_w2"] = clean_int(D.get("messaged_w2", 0))
+    D["pr_count_w2"] = clean_int(D.get("pr_count_w2", 0))
+    D["mb_count_w2"] = clean_int(D.get("mb_count_w2", 0))
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
 
