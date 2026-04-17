@@ -185,31 +185,11 @@ def generate_pdf(D):
     ss(c,LGRAY); c.setLineWidth(0.5); c.line(ML,cy,W-MR,cy)
     cy -= pad*mm
 
-    # ── Analysis header — no underline ────────────────────────────
+    # ── Analysis header — no underline, no banner, no chips ───────
     sf(c,DARK_JET); c.setFont('PB',14); c.drawCentredString(W/2,cy,'Analysis')
     cy -= 6*mm
     sf(c,GRAY); c.setFont('P',8); c.drawCentredString(W/2,cy,'FINDINGS THIS WEEK')
-    cy -= 7*mm
-
-    # Status banner
-    all_hit = all(p>=100 for p in [D['ar_pct'],D['pr_pct'],D['mbr_pct']])
-    bc=GREEN if all_hit else RED; bb=GREEN_BG if all_hit else RED_BG
-    bt='All KPIs On Target This Week' if all_hit else 'KPIs Require Attention This Week'
-    rr(c,ML,cy-7*mm,TW,9*mm,2*mm,fill=bb)
-    sf(c,bc); c.setFont('PB',8.5); c.drawCentredString(W/2,cy-4*mm,bt)
-    cy -= 12*mm
-
-    # Severity chips
-    cpw=(TW-12*mm)/3
-    for i,(txt,sk) in enumerate([(f"AR  -  {sev_lbl(D['ar_sev'])}  {D['ar_pct']}%",'ar_sev'),
-                                  (f"PR  -  {sev_lbl(D['pr_sev'])}  {D['pr_pct']}%",'pr_sev'),
-                                  (f"MBR  -  {sev_lbl(D['mbr_sev'])}  {D['mbr_pct']}%",'mbr_sev')]):
-        col,bg=sev_col(D[sk]); cx3=ML+i*(cpw+2*mm)
-        rr(c,cx3,cy-7*mm,cpw,8*mm,2*mm,fill=bg)
-        sf(c,col); c.setFont('PB',7.5); c.drawCentredString(cx3+cpw/2,cy-4*mm,txt)
-    cy -= 12*mm
-    ss(c,LGRAY); c.setLineWidth(0.5); c.line(ML,cy,W-MR,cy)
-    cy -= 6*mm
+    cy -= 8*mm
 
     # Analysis text
     cy = wrap(c, D.get('analysis',''), ML, cy, TW, sz=10, lead=15)
