@@ -4,8 +4,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from PIL import Image
-import numpy as np
 import io, os
 
 app = Flask(__name__)
@@ -28,7 +26,6 @@ LGRAY      = (220/255, 220/255, 220/255)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
-# ── Font registration ─────────────────────────────────────────────────────────
 def reg_fonts():
     for n, f in [('P', 'Poppins-Regular'), ('PB', 'Poppins-Bold'), ('PM', 'Poppins-Medium')]:
         path = os.path.join(BASE, f + '.ttf')
@@ -38,47 +35,6 @@ def reg_fonts():
             except Exception:
                 pass
 
-# ── Logo with transparency fix ────────────────────────────────────────────────
-def get_logo_path(white=True):
-    """
-    Returns a path to a transparency-fixed version of the logo.
-    The source PNGs are RGB with black backgrounds. This converts
-    black pixels to transparent and caches the result.
-    """
-    src_name = 'logo_white_transparent.png' if white else 'logo_dark_transparent.png'
-    out_name = src_name.replace('.png', '_rgba.png')
-    src_path = os.path.join(BASE, src_name)
-    out_path = os.path.join(BASE, out_name)
-
-    if not os.path.exists(src_path):
-        return None
-
-    if not os.path.exists(out_path):
-        img = Image.open(src_path).convert('RGBA')
-        data = np.array(img)
-
-        if white:
-            # White logo on black bg — make black pixels transparent
-            mask = (data[:, :, 0] < 30) & (data[:, :, 1] < 30) & (data[:, :, 2] < 30)
-        else:
-            # Dark logo — source file is fully black (corrupted).
-            # Derive from white logo by inverting colours.
-            white_path = os.path.join(BASE, 'logo_white_transparent_rgba.png')
-            if not os.path.exists(white_path):
-                get_logo_path(white=True)  # ensure white version is built first
-            w_img = Image.open(white_path).convert('RGBA')
-            w_data = np.array(w_img)
-            inv_rgb = 255 - w_data[:, :, :3]
-            result = np.concatenate([inv_rgb, w_data[:, :, 3:4]], axis=2)
-            Image.fromarray(result.astype(np.uint8)).save(out_path)
-            return out_path
-
-        data[:, :, 3] = np.where(mask, 0, 255)
-        Image.fromarray(data).save(out_path)
-
-    return out_path
-
-# ── Drawing helpers ───────────────────────────────────────────────────────────
 def sf(c, rgb): c.setFillColorRGB(*rgb)
 def ss(c, rgb): c.setStrokeColorRGB(*rgb)
 
@@ -144,16 +100,15 @@ def wrap(c, text, x, y, mw, font='P', sz=10.5, lead=16, col=None):
     return y
 
 def draw_logo(c, x, y, w, h, white=True):
-    path = get_logo_path(white=white)
-    if path and os.path.exists(path):
-        c.drawImage(path, x, y, width=w, height=h, preserveAspectRatio=True, mask='auto')
+    f = os.path.join(BASE, 'logo_white_transparent.png' if white else 'logo_dark_transparent.png')
+    if os.path.exists(f):
+        c.drawImage(f, x, y, width=w, height=h, preserveAspectRatio=True, mask='auto')
 
 def topbar(c):
     sf(c, DARK_JET)
     c.rect(0, H - 22*mm, W, 22*mm, fill=1, stroke=0)
     draw_logo(c, W/2 - 22*mm, H - 22*mm + 2.5*mm, 44*mm, 17*mm, white=True)
 
-# ── PDF generator ─────────────────────────────────────────────────────────────
 def generate_pdf(D):
     reg_fonts()
 
@@ -200,14 +155,12 @@ def generate_pdf(D):
     c.line(W/2 - 11*mm, H - 48*mm, W/2 + 11*mm, H - 48*mm)
 
     ct = H - 58*mm
-    # FIX: (TW-10mm)/3 ensures all 3 cards fit within margins so
-    # drawCentredString centres correctly in every card
     cw2 = (TW - 10*mm) / 3
 
     kpis = [
-        ('Acceptance Rate',      'ar_w2',  'ar_pct',  'ar_sev',  'ar_trend'),
-        ('Positive Response Rate','pr_w2',  'pr_pct',  'pr_sev',  'pr_trend'),
-        ('Meeting Booked Rate',  'mbr_w2', 'mbr_pct', 'mbr_sev', 'mbr_trend'),
+        ('Acceptance Rate',       'ar_w2',  'ar_pct',  'ar_sev',  'ar_trend'),
+        ('Positive Response Rate', 'pr_w2',  'pr_pct',  'pr_sev',  'pr_trend'),
+        ('Meeting Booked Rate',   'mbr_w2', 'mbr_pct', 'mbr_sev', 'mbr_trend'),
     ]
 
     for i, (abbr, vk, pk, sk, tk) in enumerate(kpis):
@@ -234,7 +187,6 @@ def generate_pdf(D):
         c.setFont('PB', 9)
         c.drawCentredString(cx + cw2/2, ct - 25*mm, f'{pct}% of target')
 
-    # Target Score row
     sy = ct - 52*mm
     sf(c, DARK_JET)
     c.setFont('PB', 9)
@@ -244,12 +196,11 @@ def generate_pdf(D):
     c.line(ML, sy + 1*mm, W - MR, sy + 1*mm)
     sy -= 8*mm
 
-    score_labels = [
+    for i, (sk, full) in enumerate([
         ('ar_sev',  'Acceptance Rate'),
         ('pr_sev',  'Positive Response Rate'),
         ('mbr_sev', 'Meeting Booked Rate'),
-    ]
-    for i, (sk, full) in enumerate(score_labels):
+    ]):
         col, bg = sev_col(D[sk])
         bw = TW/3 - 2*mm
         bx = ML + i * (TW/3)
@@ -258,7 +209,6 @@ def generate_pdf(D):
         c.setFont('PB', 8)
         c.drawCentredString(bx + bw/2, sy + 3*mm, f'{full}  -  {sev_lbl(D[sk])}')
 
-    # Legend
     ly = sy - 14*mm
     lx = ML
     for col_l, lbl2 in [
@@ -271,7 +221,6 @@ def generate_pdf(D):
         c.setFont('P', 7.5)
         c.drawString(lx + 4.5*mm, ly + 0.5*mm, lbl2)
         lx += c.stringWidth(lbl2, 'P', 7.5) + 14*mm
-
     c.showPage()
 
     # ── PAGE 3: ANALYSIS ─────────────────────────────────────────────────────
@@ -303,12 +252,11 @@ def generate_pdf(D):
 
     cpy = cy2 + ch2 - 26*mm
     cpw = (TW - 20*mm) / 3
-    chips = [
-        (f"AR  -  {sev_lbl(D['ar_sev'])}  {D['ar_pct']}%",  'ar_sev'),
-        (f"PR  -  {sev_lbl(D['pr_sev'])}  {D['pr_pct']}%",  'pr_sev'),
+    for i, (txt, sk) in enumerate([
+        (f"AR  -  {sev_lbl(D['ar_sev'])}  {D['ar_pct']}%",   'ar_sev'),
+        (f"PR  -  {sev_lbl(D['pr_sev'])}  {D['pr_pct']}%",   'pr_sev'),
         (f"MBR  -  {sev_lbl(D['mbr_sev'])}  {D['mbr_pct']}%", 'mbr_sev'),
-    ]
-    for i, (txt, sk) in enumerate(chips):
+    ]):
         col, bg = sev_col(D[sk])
         cx3 = ML + 8*mm + i * (cpw + 2*mm)
         rr(c, cx3, cpy, cpw, 8*mm, 2*mm, fill=bg)
