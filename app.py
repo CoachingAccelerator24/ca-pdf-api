@@ -11,7 +11,6 @@ W, H = A4
 ML = 20*mm; MR = 20*mm; TW = W - ML - MR
 
 TECH_BLUE  = (51/255, 96/255, 238/255)
-PUMPKIN    = (255/255, 129/255, 51/255)
 DARK_JET   = (41/255, 41/255, 41/255)
 PLATINUM   = (248/255, 248/255, 248/255)
 WHITE      = (1, 1, 1)
@@ -106,7 +105,9 @@ def generate_pdf(D):
     for k in ['ar_pct','pr_pct','mbr_pct','invited_w2','messaged_w2','pr_count_w2','mb_count_w2']:
         D[k] = ci(D.get(k,0))
 
-    w2 = D.get('week2_dates','')
+    w2    = D.get('week2_dates','')
+    cname = D.get('client_name','')
+
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
 
@@ -115,20 +116,30 @@ def generate_pdf(D):
     draw_logo(c, W/2-40*mm, H*0.62, 80*mm, 80*mm, white=True)
     ss(c,(200/255,215/255,255/255)); c.setLineWidth(1)
     c.line(W/2-35*mm, H*0.595, W/2+35*mm, H*0.595)
-    sf(c,WHITE); c.setFont('PB',40); c.drawCentredString(W/2, H*0.46, 'Weekly Report')
-    sf(c,(200/255,215/255,255/255)); c.setFont('P',14); c.drawCentredString(W/2, H*0.415, w2)
-    c.setFont('P',7)
+    sf(c,WHITE); c.setFont('PB',40)
+    c.drawCentredString(W/2, H*0.46, 'Weekly Report')
+    sf(c,(200/255,215/255,255/255)); c.setFont('P',14)
+    c.drawCentredString(W/2, H*0.415, w2)
+
+    # Client name below date
+    if cname:
+        c.setLineWidth(0.5)
+        c.line(W/2-20*mm, H*0.385, W/2+20*mm, H*0.385)
+        c.setFont('PM', 11)
+        c.drawCentredString(W/2, H*0.365, cname)
+
+    sf(c,(200/255,215/255,255/255)); c.setFont('P',7)
     c.drawString(ML, 4*mm, 'coachingaccelerator.co')
     c.drawRightString(W-MR, 4*mm, 'Confidential')
     c.showPage()
 
-    # ── PAGE 2: COMBINED METRICS + ANALYSIS + PLANS ──────────────
+    # ── PAGE 2: COMBINED ─────────────────────────────────────────
     sf(c, PLATINUM); c.rect(0,0,W,H,fill=1,stroke=0); topbar(c)
 
-    # Dynamic padding — distributes whitespace evenly across sections
+    # Dynamic padding
     analysis_text_h = wrap_height(c, D.get('analysis',''), TW) / mm
     plans_text_h    = wrap_height(c, D.get('plans',''),    TW) / mm
-    fixed_h = 22 + 13 + 32 + 8 + 13 + 11 + 14 + 22 + 14
+    fixed_h = 22 + 13 + 36 + 8 + 13 + 11 + 14 + 22 + 14
     text_h  = analysis_text_h + plans_text_h
     slack   = (297 - 8) - fixed_h - text_h
     pad     = max(slack / 7, 2)
@@ -141,23 +152,26 @@ def generate_pdf(D):
     sf(c,GRAY); c.setFont('P',8); c.drawCentredString(W/2, cy, w2)
     cy -= pad*mm + 2*mm
 
-    # ── KPI Cards — severity label inside header bar ──────────────
-    cw2 = (TW-10*mm)/3; ch = 33*mm; ct = cy
-    for i, (abbr, vk, pk, sk) in enumerate([
-        ('Acceptance Rate',       'ar_w2','ar_pct','ar_sev'),
-        ('Positive Response Rate','pr_w2','pr_pct','pr_sev'),
-        ('Meeting Booked Rate',   'mbr_w2','mbr_pct','mbr_sev'),
-    ]):
+    # ── KPI Cards ────────────────────────────────────────────────
+    cw2 = (TW-10*mm)/3; ch = 37*mm; ct = cy
+
+    kpi_targets = [
+        ('Acceptance Rate',       'ar_w2','ar_pct','ar_sev',  'Target: 35%'),
+        ('Positive Response Rate','pr_w2','pr_pct','pr_sev',  'Target: 5%'),
+        ('Meeting Booked Rate',   'mbr_w2','mbr_pct','mbr_sev','Target: 60%'),
+    ]
+
+    for i, (abbr, vk, pk, sk, tgt_lbl) in enumerate(kpi_targets):
         cx = ML+i*(cw2+5*mm); val=D[vk]; pct=D[pk]; col,bg=sev_col(D[sk])
         rr(c,cx,ct-ch,cw2,ch,3*mm,fill=WHITE,stroke=LGRAY,lw=0.5)
-        # Header bar — taller to fit two lines
+        # Header bar
         sf(c,col)
         c.roundRect(cx,ct-8*mm,cw2,8*mm,3*mm,fill=1,stroke=0)
         c.rect(cx,ct-9.5*mm,cw2,2*mm,fill=1,stroke=0)
-        # Line 1: metric name
+        # Metric name
         sf(c,WHITE); c.setFont('PB',7)
         c.drawCentredString(cx+cw2/2, ct-4*mm, abbr)
-        # Line 2: severity label
+        # Severity label
         c.setFont('P',6.5)
         c.drawCentredString(cx+cw2/2, ct-7.2*mm, sev_lbl(D[sk]))
         # Big number
@@ -168,11 +182,17 @@ def generate_pdf(D):
         c.line(cx+3*mm, ct-21.5*mm, cx+cw2-3*mm, ct-21.5*mm)
         # % of target
         sf(c,col); c.setFont('PB',8.5)
-        c.drawCentredString(cx+cw2/2, ct-26.5*mm, f'{pct}% of target')
+        c.drawCentredString(cx+cw2/2, ct-25.5*mm, f'{pct}% of target')
+        # Second divider
+        ss(c,LGRAY); c.setLineWidth(0.3)
+        c.line(cx+3*mm, ct-28.5*mm, cx+cw2-3*mm, ct-28.5*mm)
+        # Target label
+        sf(c,GRAY); c.setFont('P',7)
+        c.drawCentredString(cx+cw2/2, ct-32.5*mm, tgt_lbl)
 
     cy = ct - ch - pad*mm
 
-    # ── Legend — capitalized ──────────────────────────────────────
+    # ── Legend ───────────────────────────────────────────────────
     lx = ML
     for col_l, lbl2 in [(GREEN,'On / Above Target'),(BLUE_ST,'Between 76-99% Of Target'),(RED,'Below 76% Of Target')]:
         rr(c,lx,cy,2.5*mm,2.5*mm,0.5*mm,fill=col_l)
@@ -185,7 +205,7 @@ def generate_pdf(D):
     ss(c,LGRAY); c.setLineWidth(0.5); c.line(ML,cy,W-MR,cy)
     cy -= pad*mm
 
-    # ── Analysis header — no underline, no banner, no chips ───────
+    # ── Analysis header ───────────────────────────────────────────
     sf(c,DARK_JET); c.setFont('PB',14); c.drawCentredString(W/2,cy,'Analysis')
     cy -= 6*mm
     sf(c,GRAY); c.setFont('P',8); c.drawCentredString(W/2,cy,'FINDINGS THIS WEEK')
@@ -199,7 +219,7 @@ def generate_pdf(D):
     ss(c,LGRAY); c.setLineWidth(0.5); c.line(ML,cy,W-MR,cy)
     cy -= pad*mm
 
-    # ── Plans Ahead header — no underline ────────────────────────
+    # ── Plans Ahead header ────────────────────────────────────────
     sf(c,DARK_JET); c.setFont('PB',14); c.drawCentredString(W/2,cy,'Plans Ahead')
     cy -= 6*mm
     sf(c,GRAY); c.setFont('P',8); c.drawCentredString(W/2,cy,"WHAT WE'RE DOING NEXT")
@@ -227,13 +247,12 @@ def gen():
         if not data:
             return jsonify({'error': 'No JSON'}), 400
         required = [
-            'client','workflow','week2_dates',
-            'invited_w2','messaged_w2','pr_count_w2','mb_count_w2',
-            'ar_w2','pr_w2','mbr_w2',
-            'ar_pct','pr_pct','mbr_pct',
-            'ar_sev','pr_sev','mbr_sev',
-            'ar_trend','pr_trend','mbr_trend',
-            'analysis','plans',
+            'client', 'client_name', 'workflow', 'week2_dates',
+            'invited_w2', 'messaged_w2', 'pr_count_w2', 'mb_count_w2',
+            'ar_w2', 'pr_w2', 'mbr_w2',
+            'ar_pct', 'pr_pct', 'mbr_pct',
+            'ar_sev', 'pr_sev', 'mbr_sev',
+            'analysis', 'plans',
         ]
         miss = [f for f in required if f not in data]
         if miss:
