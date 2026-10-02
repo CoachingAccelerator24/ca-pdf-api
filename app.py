@@ -264,18 +264,14 @@ def generate_pdf(D):
     for i, k in enumerate(kpis):
         cx = ML + col_w * (i + 0.5)
         txt(c, k['label'].upper(), cx, 150, SANS_SB, 7.5, MUTED, cs=1.4, align='c')
-
-        # Status pill
         pill = k['sev'].upper()
-        pw = text_w(pill, SANS_SB, 6.75, 0.9) + 20
-        c.setStrokeColorRGB(*k['col']); c.setLineWidth(0.75)
-        c.roundRect(cx - pw/2, Y(174.4), pw, 15, 7.5, stroke=1, fill=0)
-        txt(c, pill, cx, 169.5, SANS_SB, 6.75, k['col'], cs=0.9, align='c')
-
+        pw = text_w(pill, SANS_SB, 6.75, 0.9) + 24
+        c.setFillColorRGB(*k['col'])
+        c.roundRect(cx - pw/2, Y(175), pw, 16, 8, stroke=0, fill=1)
+        txt(c, pill, cx, 169.8, SANS_SB, 6.75, WHITE, cs=0.9, align='c')
         txt(c, fmt_rate(k['val']), cx, 214.5, SERIF, 33, k['col'], align='c')
         txt(c, f"{k['pct']}% of target", cx, 239.2, SANS, 9, INK, align='c')
         txt(c, f"Target: {k['target']}", cx, 255.7, SANS, 7.5, SOFT, align='c')
-
     for i in (1, 2):
         vline(c, ML + col_w * i, 142.5, 258)
 
